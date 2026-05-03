@@ -1,61 +1,70 @@
-import { Canvas, useFrame } from "@react-three/fiber";
 import { ScreenQuad } from "@react-three/drei";
-import { useControls } from "leva";
+import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { ditherFragment, ditherVertex } from "../shaders/dither";
 
-const PATTERNS = { "Bayer 2×2": 0, "Bayer 4×4": 1, "Bayer 8×8": 2 } as const;
-const HOVER_MODES = { Punch: 0, Erase: 1 } as const;
-
-type Controls = {
-  pattern: number;
-  levels: number;
+export type DitherControls = {
+  centerX: number;
+  centerY: number;
+  diskRadius: number;
+  ringSpacing: number;
+  ringCount: number;
+  ringFalloff: number;
+  ringBreak: number;
   pixelSize: number;
-  hoverIntensity: number;
-  hoverMode: number;
-  colorA: string;
-  colorB: string;
-  monochrome: boolean;
+  matrix: number;
+  noiseAmount: number;
+  noiseScale: number;
+  noiseSpeed: number;
+  opacity: number;
+  color: string;
 };
 
-function DitherMesh({ controls }: { controls: Controls }) {
+export function DitherMesh({ controls }: { controls: DitherControls }) {
   const matRef = useRef<THREE.ShaderMaterial>(null!);
 
   const uniforms = useMemo(
     () => ({
       uTime: { value: 0 },
-      uMouse: { value: new THREE.Vector2(0.5, 0.5) },
       uResolution: { value: new THREE.Vector2(1, 1) },
-      uMatrix: { value: 2 },
-      uLevels: { value: 2 },
+      uCenter: { value: new THREE.Vector2(0.5, 0.5) },
+      uDiskRadius: { value: 0.18 },
+      uRingSpacing: { value: 0.12 },
+      uRingCount: { value: 4 },
+      uRingFalloff: { value: 0.6 },
+      uRingBreak: { value: 0.7 },
       uPixelSize: { value: 3 },
-      uHoverIntensity: { value: 0.6 },
-      uHoverMode: { value: 0 },
-      uColorA: { value: new THREE.Color("#0a0a0a") },
-      uColorB: { value: new THREE.Color("#fafafa") },
-      uMonochrome: { value: 0 },
+      uMatrix: { value: 2 },
+      uNoiseAmount: { value: 0.6 },
+      uNoiseScale: { value: 6 },
+      uNoiseSpeed: { value: 0.05 },
+      uOpacity: { value: 1 },
+      uColor: { value: new THREE.Color("#ffffff") },
     }),
     [],
   );
 
   useFrame((state) => {
-    if (!matRef.current) return;
-    uniforms.uTime.value = state.clock.elapsedTime;
-    uniforms.uMouse.value.set(
-      state.pointer.x * 0.5 + 0.5,
-      state.pointer.y * 0.5 + 0.5,
-    );
-    uniforms.uResolution.value.set(state.size.width, state.size.height);
-
-    uniforms.uMatrix.value = controls.pattern;
-    uniforms.uLevels.value = Math.round(controls.levels);
-    uniforms.uPixelSize.value = controls.pixelSize;
-    uniforms.uHoverIntensity.value = controls.hoverIntensity;
-    uniforms.uHoverMode.value = controls.hoverMode;
-    uniforms.uColorA.value.set(controls.colorA);
-    uniforms.uColorB.value.set(controls.colorB);
-    uniforms.uMonochrome.value = controls.monochrome ? 1 : 0;
+    const m = matRef.current;
+    if (!m) return;
+    // Read uniforms from the live material to dodge stale closures across HMR
+    const u = m.uniforms;
+    u.uTime.value = state.clock.elapsedTime;
+    u.uResolution.value.set(state.size.width, state.size.height);
+    u.uCenter.value.set(controls.centerX / 100, 1 - controls.centerY / 100);
+    u.uDiskRadius.value = controls.diskRadius;
+    u.uRingSpacing.value = controls.ringSpacing;
+    u.uRingCount.value = Math.round(controls.ringCount);
+    u.uRingFalloff.value = controls.ringFalloff;
+    u.uRingBreak.value = controls.ringBreak;
+    u.uPixelSize.value = controls.pixelSize;
+    u.uMatrix.value = controls.matrix;
+    u.uNoiseAmount.value = controls.noiseAmount;
+    u.uNoiseScale.value = controls.noiseScale;
+    u.uNoiseSpeed.value = controls.noiseSpeed;
+    u.uOpacity.value = controls.opacity;
+    u.uColor.value.set(controls.color);
   });
 
   return (
@@ -66,26 +75,8 @@ function DitherMesh({ controls }: { controls: Controls }) {
         vertexShader={ditherVertex}
         fragmentShader={ditherFragment}
         glslVersion={THREE.GLSL3}
+        transparent
       />
     </ScreenQuad>
-  );
-}
-
-export function DitherCanvas() {
-  const controls = useControls("Dither", {
-    pattern: { value: 2, options: PATTERNS },
-    levels: { value: 2, min: 2, max: 8, step: 1 },
-    pixelSize: { value: 3, min: 1, max: 12, step: 1 },
-    hoverIntensity: { value: 0.6, min: 0, max: 1.5, step: 0.01 },
-    hoverMode: { value: 0, options: HOVER_MODES },
-    colorA: "#0a0a0a",
-    colorB: "#fafafa",
-    monochrome: false,
-  }) as Controls;
-
-  return (
-    <Canvas dpr={[1, 2]} gl={{ antialias: false }}>
-      <DitherMesh controls={controls} />
-    </Canvas>
   );
 }
