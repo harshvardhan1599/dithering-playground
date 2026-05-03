@@ -33,6 +33,7 @@ function App() {
     centerY: { value: 50, min: 0, max: 100, step: 1, label: "center Y %" },
     diskRadius: { value: 0.18, min: 0.0, max: 0.6, step: 0.005 },
     ringSpacing: { value: 0.12, min: 0.01, max: 0.4, step: 0.005 },
+    ringWidth: { value: 0.3, min: 0.05, max: 1, step: 0.01 },
     ringCount: { value: 4, min: 0, max: 10, step: 1 },
     ringFalloff: { value: 0.6, min: 0.1, max: 1, step: 0.01 },
     ringBreak: { value: 0.7, min: 0, max: 1, step: 0.01 },
@@ -41,6 +42,12 @@ function App() {
     noiseAmount: { value: 0.6, min: 0, max: 1, step: 0.01 },
     noiseScale: { value: 6, min: 0.5, max: 30, step: 0.5 },
     noiseSpeed: { value: 0.05, min: 0, max: 1, step: 0.01 },
+    sparsity: { value: 0, min: 0, max: 1, step: 0.01 },
+    dotJitter: { value: 0.15, min: 0, max: 1, step: 0.01 },
+    hoverIntensity: { value: 0.6, min: 0, max: 1.5, step: 0.01 },
+    hoverRadius: { value: 0.25, min: 0.01, max: 1, step: 0.01 },
+    hoverPulseSpeed: { value: 2.0, min: 0, max: 10, step: 0.1 },
+    hoverPulseAmount: { value: 0.3, min: 0, max: 1, step: 0.01 },
     opacity: { value: 1, min: 0, max: 1, step: 0.01 },
     color: "#ffffff",
   }) as DitherControls;
@@ -88,7 +95,6 @@ function App() {
         style={{
           position: "absolute",
           inset: 0,
-          pointerEvents: "none",
         }}
       >
         <DitherMesh controls={ditherControls} />

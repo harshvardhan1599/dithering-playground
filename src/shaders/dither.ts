@@ -20,6 +20,7 @@ uniform vec2 uResolution;
 uniform vec2 uCenter;          // 0..1 in vUv space (y=1 is top)
 uniform float uDiskRadius;     // aspect-corrected normalized radius
 uniform float uRingSpacing;
+uniform float uRingWidth;      // half-width as fraction of spacing
 uniform int uRingCount;        // 0..10
 uniform float uRingFalloff;    // amplitude attenuation per ring
 uniform float uRingBreak;      // 0..1, how broken the rings are
@@ -30,6 +31,13 @@ uniform float uNoiseScale;     // noise frequency
 uniform float uNoiseSpeed;     // drift speed
 uniform float uOpacity;
 uniform vec3 uColor;
+uniform float uSparsity;       // 0 = dense, 1 = mostly empty
+uniform float uDotJitter;      // per-cell random size variation, 0..1
+uniform vec2 uMouse;           // cursor in vUv space
+uniform float uHoverIntensity; // spotlight strength
+uniform float uHoverRadius;    // spotlight radius (normalized, aspect-corrected)
+uniform float uHoverPulseSpeed;
+uniform float uHoverPulseAmount;
 
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -103,17 +111,20 @@ void main() {
   float disk = 1.0 - smoothstep(uDiskRadius * 0.6, uDiskRadius, r);
   float diskBody = disk * (1.0 + (n - 0.5) * 2.0 * uNoiseAmount);
 
-  // Concentric rings outside the disk, broken by angular noise
+  // Concentric rings outside the disk, broken and modulated by angular noise.
+  // Frequency follows uNoiseScale, drift follows uNoiseSpeed (via t),
+  // brightness variation follows uNoiseAmount.
   float rings = 0.0;
   for (int i = 1; i <= 10; i++) {
     if (i > uRingCount) break;
     float ringR = uDiskRadius + float(i) * uRingSpacing;
-    float halfWidth = max(uRingSpacing * 0.3, 0.005);
+    float halfWidth = max(uRingSpacing * uRingWidth, 0.005);
     float d = (r - ringR) / halfWidth;
     float pulse = exp(-d * d);
 
-    float angBreak = vnoise(vec2(angle * 4.0 + float(i) * 13.0, t * 0.5));
-    pulse *= mix(1.0, angBreak, uRingBreak);
+    float ringNoise = vnoise(vec2(angle * uNoiseScale * 0.5 + float(i) * 13.0, t));
+    pulse *= mix(1.0, ringNoise, uRingBreak);
+    pulse *= 1.0 + (ringNoise - 0.5) * 2.0 * uNoiseAmount;
     pulse *= pow(uRingFalloff, float(i - 1));
 
     rings = max(rings, pulse);
@@ -121,11 +132,21 @@ void main() {
 
   float source = clamp(max(diskBody, rings), 0.0, 1.0);
 
+  // Mouse spotlight: smooth blob of intensity that follows the cursor.
+  // Radius breathes over time via a sine pulse.
+  vec2 mdv = cellUv - uMouse;
+  mdv.x *= aspect;
+  float mouseDist = length(mdv);
+  float pulseScale = 1.0 + sin(uTime * uHoverPulseSpeed) * uHoverPulseAmount;
+  float effectiveRadius = max(uHoverRadius * pulseScale, 0.001);
+  float spotlight = (1.0 - smoothstep(0.0, effectiveRadius, mouseDist)) * uHoverIntensity;
+  source = clamp(source + spotlight, 0.0, 1.0);
+
   // Halftone: dot radius is proportional to source intensity per cell.
-  // Bayer threshold jitters the radius slightly so the pattern keeps an organic feel.
-  float th = bayerThreshold(int(cell.x), int(cell.y));
-  float jitter = (th - 0.5) * 0.15;
-  float intensity = clamp(source + jitter, 0.0, 1.0);
+  // Per-cell hash gives a random size jitter between neighbours; uDotJitter
+  // controls how strong that variation is.
+  float jitter = (hash(cell) - 0.5) * uDotJitter;
+  float intensity = clamp(source + jitter - uSparsity, 0.0, 1.0);
 
   vec2 within = pixel - cell * tile;
   float distFromCellCenter = length(within - vec2(tile * 0.5));
@@ -134,6 +155,8 @@ void main() {
   float circle = step(0.005, intensity)
     * (1.0 - smoothstep(dotRadius - 0.5, dotRadius + 0.5, distFromCellCenter));
 
-  fragColor = vec4(uColor, circle * uOpacity);
+  // Tie alpha to intensity (squared) so smaller dots render distinctly fainter.
+  // intensity=1 → full alpha, intensity=0.5 → 0.25 alpha, intensity=0.2 → 0.04 alpha.
+  fragColor = vec4(uColor, circle * intensity * intensity * uOpacity);
 }
 `;

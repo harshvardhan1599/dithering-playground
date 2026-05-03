@@ -9,6 +9,7 @@ export type DitherControls = {
   centerY: number;
   diskRadius: number;
   ringSpacing: number;
+  ringWidth: number;
   ringCount: number;
   ringFalloff: number;
   ringBreak: number;
@@ -17,6 +18,12 @@ export type DitherControls = {
   noiseAmount: number;
   noiseScale: number;
   noiseSpeed: number;
+  sparsity: number;
+  dotJitter: number;
+  hoverIntensity: number;
+  hoverRadius: number;
+  hoverPulseSpeed: number;
+  hoverPulseAmount: number;
   opacity: number;
   color: string;
 };
@@ -31,6 +38,7 @@ export function DitherMesh({ controls }: { controls: DitherControls }) {
       uCenter: { value: new THREE.Vector2(0.5, 0.5) },
       uDiskRadius: { value: 0.18 },
       uRingSpacing: { value: 0.12 },
+      uRingWidth: { value: 0.3 },
       uRingCount: { value: 4 },
       uRingFalloff: { value: 0.6 },
       uRingBreak: { value: 0.7 },
@@ -39,6 +47,13 @@ export function DitherMesh({ controls }: { controls: DitherControls }) {
       uNoiseAmount: { value: 0.6 },
       uNoiseScale: { value: 6 },
       uNoiseSpeed: { value: 0.05 },
+      uSparsity: { value: 0 },
+      uDotJitter: { value: 0.15 },
+      uMouse: { value: new THREE.Vector2(-10, -10) },
+      uHoverIntensity: { value: 0.6 },
+      uHoverRadius: { value: 0.25 },
+      uHoverPulseSpeed: { value: 2.0 },
+      uHoverPulseAmount: { value: 0.3 },
       uOpacity: { value: 1 },
       uColor: { value: new THREE.Color("#ffffff") },
     }),
@@ -55,6 +70,7 @@ export function DitherMesh({ controls }: { controls: DitherControls }) {
     u.uCenter.value.set(controls.centerX / 100, 1 - controls.centerY / 100);
     u.uDiskRadius.value = controls.diskRadius;
     u.uRingSpacing.value = controls.ringSpacing;
+    u.uRingWidth.value = controls.ringWidth;
     u.uRingCount.value = Math.round(controls.ringCount);
     u.uRingFalloff.value = controls.ringFalloff;
     u.uRingBreak.value = controls.ringBreak;
@@ -63,6 +79,16 @@ export function DitherMesh({ controls }: { controls: DitherControls }) {
     u.uNoiseAmount.value = controls.noiseAmount;
     u.uNoiseScale.value = controls.noiseScale;
     u.uNoiseSpeed.value = controls.noiseSpeed;
+    u.uSparsity.value = controls.sparsity;
+    u.uDotJitter.value = controls.dotJitter;
+    u.uMouse.value.set(
+      state.pointer.x * 0.5 + 0.5,
+      state.pointer.y * 0.5 + 0.5,
+    );
+    u.uHoverIntensity.value = controls.hoverIntensity;
+    u.uHoverRadius.value = controls.hoverRadius;
+    u.uHoverPulseSpeed.value = controls.hoverPulseSpeed;
+    u.uHoverPulseAmount.value = controls.hoverPulseAmount;
     u.uOpacity.value = controls.opacity;
     u.uColor.value.set(controls.color);
   });
