@@ -1,62 +1,46 @@
 import { useState } from "react";
 import { Canvas } from "@react-three/fiber";
-import { useControls } from "leva";
 import { DitherMesh, type DitherControls } from "./components/DitherCanvas";
 import {
   LayersPanel,
   type LayerKey,
   type LayerVisibility,
 } from "./components/LayersPanel";
+import { BACKGROUNDS, PropertiesPanel } from "./components/PropertiesPanel";
 
-const MATRICES = { "Bayer 2×2": 0, "Bayer 4×4": 1, "Bayer 8×8": 2 } as const;
+const INITIAL_DITHER: DitherControls = {
+  centerX: 50,
+  centerY: 50,
+  diskRadius: 0.19,
+  ringSpacing: 0.1,
+  ringWidth: 0.24,
+  ringCount: 4,
+  ringFalloff: 0.6,
+  ringBreak: 0.7,
+  pixelSize: 8,
+  matrix: 2,
+  noiseAmount: 0.6,
+  noiseScale: 10.5,
+  noiseSpeed: 0.66,
+  sparsity: 0.13,
+  dotJitter: 0.31,
+  hoverIntensity: 0.71,
+  hoverRadius: 0.19,
+  hoverPulseSpeed: 2.0,
+  hoverPulseAmount: 0.46,
+  opacity: 1,
+  color: "#ffffff",
+};
 
 function App() {
-  const { centerX, centerY, innerStop, outerStop, opacity } = useControls(
-    "Mask",
-    {
-      centerX: { value: 50, min: 0, max: 100, step: 1, label: "center X %" },
-      centerY: { value: 50, min: 0, max: 100, step: 1, label: "center Y %" },
-      innerStop: {
-        value: 25,
-        min: 0,
-        max: 100,
-        step: 1,
-        label: "inner stop %",
-      },
-      outerStop: {
-        value: 65,
-        min: 0,
-        max: 100,
-        step: 1,
-        label: "outer stop %",
-      },
-      opacity: { value: 1, min: 0, max: 1, step: 0.01, label: "opacity" },
-    },
-  );
+  const [ditherControls, setDitherControls] =
+    useState<DitherControls>(INITIAL_DITHER);
+  const [backgroundIndex, setBackgroundIndex] = useState(0);
 
-  const ditherControls = useControls("Dither", {
-    centerX: { value: 50, min: 0, max: 100, step: 1, label: "center X %" },
-    centerY: { value: 50, min: 0, max: 100, step: 1, label: "center Y %" },
-    diskRadius: { value: 0.19, min: 0.0, max: 0.6, step: 0.005 },
-    ringSpacing: { value: 0.1, min: 0.01, max: 0.4, step: 0.005 },
-    ringWidth: { value: 0.24, min: 0.05, max: 1, step: 0.01 },
-    ringCount: { value: 4, min: 0, max: 10, step: 1 },
-    ringFalloff: { value: 0.6, min: 0.1, max: 1, step: 0.01 },
-    ringBreak: { value: 0.7, min: 0, max: 1, step: 0.01 },
-    pixelSize: { value: 8, min: 1, max: 12, step: 1 },
-    matrix: { value: 2, options: MATRICES },
-    noiseAmount: { value: 0.6, min: 0, max: 1, step: 0.01 },
-    noiseScale: { value: 10.5, min: 0.5, max: 30, step: 0.5 },
-    noiseSpeed: { value: 0.66, min: 0, max: 1, step: 0.01 },
-    sparsity: { value: 0.13, min: 0, max: 1, step: 0.01 },
-    dotJitter: { value: 0.31, min: 0, max: 1, step: 0.01 },
-    hoverIntensity: { value: 0.71, min: 0, max: 1.5, step: 0.01 },
-    hoverRadius: { value: 0.19, min: 0.01, max: 1, step: 0.01 },
-    hoverPulseSpeed: { value: 2.0, min: 0, max: 10, step: 0.1 },
-    hoverPulseAmount: { value: 0.46, min: 0, max: 1, step: 0.01 },
-    opacity: { value: 1, min: 0, max: 1, step: 0.01 },
-    color: "#ffffff",
-  }) as DitherControls;
+  const updateDither = <K extends keyof DitherControls>(
+    key: K,
+    value: DitherControls[K],
+  ) => setDitherControls((prev) => ({ ...prev, [key]: value }));
 
   const cell = 96;
   const lineColor = "rgba(255,255,255,0.12)";
@@ -67,7 +51,8 @@ function App() {
     `</svg>`;
   const gridUrl = `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
 
-  const mask = `radial-gradient(circle at ${centerX}% ${centerY}%, transparent 0%, black ${innerStop}%, black ${outerStop}%, transparent 100%)`;
+  const mask =
+    "radial-gradient(circle at 50% 50%, black 0%, transparent 100%)";
 
   const [visibility, setVisibility] = useState<LayerVisibility>({
     gradient: true,
@@ -85,10 +70,7 @@ function App() {
       {visibility.gradient && (
         <div
           className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(to bottom, #00021B 0%, #002A9A 40%, #0081F3 69%, #F1F8FE 100%)",
-          }}
+          style={{ background: BACKGROUNDS[backgroundIndex].page }}
         />
       )}
       {visibility.grid && (
@@ -100,7 +82,6 @@ function App() {
             backgroundRepeat: "repeat",
             maskImage: mask,
             WebkitMaskImage: mask,
-            opacity,
           }}
         />
       )}
@@ -122,6 +103,12 @@ function App() {
         />
       </Canvas>
       <LayersPanel visibility={visibility} onToggle={toggleLayer} />
+      <PropertiesPanel
+        controls={ditherControls}
+        onChange={updateDither}
+        backgroundIndex={backgroundIndex}
+        onBackgroundChange={setBackgroundIndex}
+      />
     </div>
   );
 }
