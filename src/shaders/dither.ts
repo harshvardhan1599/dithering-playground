@@ -38,6 +38,9 @@ uniform float uHoverIntensity; // spotlight strength
 uniform float uHoverRadius;    // spotlight radius (normalized, aspect-corrected)
 uniform float uHoverPulseSpeed;
 uniform float uHoverPulseAmount;
+uniform float uShapeEnabled;   // 1 = render shape source, 0 = none
+uniform float uNoiseEnabled;   // 1 = apply noise modulation, 0 = neutral
+uniform float uDotsEnabled;    // 1 = halftone dots, 0 = smooth grayscale
 
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -103,17 +106,18 @@ void main() {
   float r = length(dv);
   float angle = atan(dv.y, dv.x);
 
-  // Slow noise drift over space + time
+  // Slow noise drift over space + time. Gating happens via the modulation
+  // amplitudes so disabling noise yields smooth disk + unbroken rings.
   float t = uTime * uNoiseSpeed;
+  float noiseAmount = uNoiseAmount * uNoiseEnabled;
+  float ringBreak = uRingBreak * uNoiseEnabled;
   float n = vnoise(cellUv * uNoiseScale + vec2(t, t * 0.7));
 
   // Central disk: bright inside uDiskRadius with smooth edge, modulated by noise
   float disk = 1.0 - smoothstep(uDiskRadius * 0.6, uDiskRadius, r);
-  float diskBody = disk * (1.0 + (n - 0.5) * 2.0 * uNoiseAmount);
+  float diskBody = disk * (1.0 + (n - 0.5) * 2.0 * noiseAmount);
 
   // Concentric rings outside the disk, broken and modulated by angular noise.
-  // Frequency follows uNoiseScale, drift follows uNoiseSpeed (via t),
-  // brightness variation follows uNoiseAmount.
   float rings = 0.0;
   for (int i = 1; i <= 10; i++) {
     if (i > uRingCount) break;
@@ -123,8 +127,8 @@ void main() {
     float pulse = exp(-d * d);
 
     float ringNoise = vnoise(vec2(angle * uNoiseScale * 0.5 + float(i) * 13.0, t));
-    pulse *= mix(1.0, ringNoise, uRingBreak);
-    pulse *= 1.0 + (ringNoise - 0.5) * 2.0 * uNoiseAmount;
+    pulse *= mix(1.0, ringNoise, ringBreak);
+    pulse *= 1.0 + (ringNoise - 0.5) * 2.0 * noiseAmount;
     pulse *= pow(uRingFalloff, float(i - 1));
 
     rings = max(rings, pulse);
@@ -141,6 +145,7 @@ void main() {
   float effectiveRadius = max(uHoverRadius * pulseScale, 0.001);
   float spotlight = (1.0 - smoothstep(0.0, effectiveRadius, mouseDist)) * uHoverIntensity;
   source = clamp(source + spotlight, 0.0, 1.0);
+  source *= uShapeEnabled;
 
   // Halftone: dot radius is proportional to source intensity per cell.
   // Per-cell hash gives a random size jitter between neighbours; uDotJitter
@@ -155,8 +160,10 @@ void main() {
   float circle = step(0.005, intensity)
     * (1.0 - smoothstep(dotRadius - 0.5, dotRadius + 0.5, distFromCellCenter));
 
-  // Tie alpha to intensity (squared) so smaller dots render distinctly fainter.
-  // intensity=1 → full alpha, intensity=0.5 → 0.25 alpha, intensity=0.2 → 0.04 alpha.
-  fragColor = vec4(uColor, circle * intensity * intensity * uOpacity);
+  // Tie dot alpha to intensity² so smaller dots render distinctly fainter.
+  // When dots are disabled, fall back to the smooth source as cell-pixelated grayscale.
+  float dotAlpha = circle * intensity * intensity;
+  float alpha = mix(source, dotAlpha, uDotsEnabled);
+  fragColor = vec4(uColor, alpha * uOpacity);
 }
 `;

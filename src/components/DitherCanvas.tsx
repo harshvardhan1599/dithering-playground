@@ -28,7 +28,19 @@ export type DitherControls = {
   color: string;
 };
 
-export function DitherMesh({ controls }: { controls: DitherControls }) {
+export type DitherLayerVisibility = {
+  shape: boolean;
+  noise: boolean;
+  dots: boolean;
+};
+
+export function DitherMesh({
+  controls,
+  visibility,
+}: {
+  controls: DitherControls;
+  visibility: DitherLayerVisibility;
+}) {
   const matRef = useRef<THREE.ShaderMaterial>(null!);
 
   const uniforms = useMemo(
@@ -54,6 +66,9 @@ export function DitherMesh({ controls }: { controls: DitherControls }) {
       uHoverRadius: { value: 0.25 },
       uHoverPulseSpeed: { value: 2.0 },
       uHoverPulseAmount: { value: 0.3 },
+      uShapeEnabled: { value: 1 },
+      uNoiseEnabled: { value: 1 },
+      uDotsEnabled: { value: 1 },
       uOpacity: { value: 1 },
       uColor: { value: new THREE.Color("#ffffff") },
     }),
@@ -89,6 +104,9 @@ export function DitherMesh({ controls }: { controls: DitherControls }) {
     u.uHoverRadius.value = controls.hoverRadius;
     u.uHoverPulseSpeed.value = controls.hoverPulseSpeed;
     u.uHoverPulseAmount.value = controls.hoverPulseAmount;
+    u.uShapeEnabled.value = visibility.shape ? 1 : 0;
+    u.uNoiseEnabled.value = visibility.noise ? 1 : 0;
+    u.uDotsEnabled.value = visibility.dots ? 1 : 0;
     u.uOpacity.value = controls.opacity;
     u.uColor.value.set(controls.color);
   });
