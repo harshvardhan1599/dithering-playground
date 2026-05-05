@@ -1,12 +1,17 @@
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import type { DitherControls } from "./DitherCanvas";
+import { SHAPES } from "../shapes";
+
+const SHAPE_OPTIONS = SHAPES.map((s, i) => ({ value: i, label: s.label }));
 
 type Props = {
   controls: DitherControls;
@@ -16,6 +21,8 @@ type Props = {
   ) => void;
   backgroundIndex: number;
   onBackgroundChange: (index: number) => void;
+  shapeIndex: number;
+  onShapeChange: (index: number) => void;
 };
 
 export type Background = {
@@ -36,6 +43,20 @@ export const BACKGROUNDS: Background[] = [
     swatch:
       "radial-gradient(circle at 35% 30%, #000000 0%, #872F03 33%, #D87518 66%, #FFD99E 100%)",
     page: "linear-gradient(to bottom, #000000 0%, #872F03 33%, #D87518 66%, #FFD99E 100%)",
+  },
+  {
+    id: "dusk",
+    swatch:
+      "radial-gradient(circle at 35% 30%, #1F123E 0%, #754A78 38%, #C86B75 56%, #FD7A23 78%, #C72B03 88%, #050005 100%)",
+    page:
+      "linear-gradient(to bottom, #1F123E 0%, #754A78 38%, #C86B75 56%, #FD7A23 78%, #C72B03 88%, #050005 100%)",
+  },
+  {
+    id: "dawn",
+    swatch:
+      "radial-gradient(circle at 35% 30%, #03030D 15%, #0273C9 35%, #FDD88F 55%, #F6B83D 70%, #FF8F2D 85%, #FE0000 100%)",
+    page:
+      "linear-gradient(to bottom, #03030D 15%, #0273C9 35%, #FDD88F 55%, #F6B83D 70%, #FF8F2D 85%, #FE0000 100%)",
   },
   {
     id: "orange",
@@ -203,12 +224,31 @@ function SelectField<T extends number | string>({
   onChange,
 }: SelectProps<T>) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!open || !buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    setPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (
+        buttonRef.current &&
+        !buttonRef.current.contains(t) &&
+        menuRef.current &&
+        !menuRef.current.contains(t)
+      )
+        setOpen(false);
     };
     document.addEventListener("pointerdown", onDoc);
     return () => document.removeEventListener("pointerdown", onDoc);
@@ -217,19 +257,32 @@ function SelectField<T extends number | string>({
   const current = options.find((o) => o.value === value)?.label ?? "";
 
   return (
-    <div className="flex flex-col gap-1.5" ref={ref}>
+    <div className="flex flex-col gap-1.5">
       <span className="text-[12px] text-white/70">{label}</span>
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          className="flex w-full items-center justify-between rounded-md border border-white/20 bg-white/10 px-2.5 py-1.5 text-[12px] text-white/90 hover:bg-white/15"
-        >
-          <span>{current}</span>
-          <Chevron open={open} />
-        </button>
-        {open && (
-          <div className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-md border border-white/20 bg-black/60 backdrop-blur-xl">
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between rounded-md border border-white/20 bg-white/10 px-2.5 py-1.5 text-[12px] text-white/90 hover:bg-white/15"
+      >
+        <span>{current}</span>
+        <Chevron open={open} />
+      </button>
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="overflow-hidden rounded-md border border-white/20 bg-black/70 backdrop-blur-xl"
+            style={{
+              position: "fixed",
+              top: pos.top,
+              left: pos.left,
+              width: pos.width,
+              zIndex: 50,
+              fontFamily: "'Geist Mono', ui-monospace, monospace",
+            }}
+          >
             {options.map((o) => (
               <button
                 key={String(o.value)}
@@ -245,9 +298,9 @@ function SelectField<T extends number | string>({
                 {o.label}
               </button>
             ))}
-          </div>
+          </div>,
+          document.body,
         )}
-      </div>
     </div>
   );
 }
@@ -321,6 +374,8 @@ export function PropertiesPanel({
   onChange,
   backgroundIndex,
   onBackgroundChange,
+  shapeIndex,
+  onShapeChange,
 }: Props) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -380,6 +435,15 @@ export function PropertiesPanel({
                   );
                 })}
               </div>
+            </Group>
+            <div className="h-px bg-white/10" />
+            <Group label="Shape">
+              <SelectField
+                label="shape"
+                value={shapeIndex}
+                options={SHAPE_OPTIONS}
+                onChange={onShapeChange}
+              />
             </Group>
             <div className="h-px bg-white/10" />
             <Group label="Noise">

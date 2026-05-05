@@ -41,6 +41,10 @@ uniform float uHoverPulseAmount;
 uniform float uShapeEnabled;   // 1 = render shape source, 0 = none
 uniform float uNoiseEnabled;   // 1 = apply noise modulation, 0 = neutral
 uniform float uDotsEnabled;    // 1 = halftone dots, 0 = smooth grayscale
+uniform float uShapeMode;      // 0 = analytic disk+rings, 1 = sample uShapeTex
+uniform float uShapeScale;     // half-extent in normalized coords (texture mode)
+uniform float uRippleAmount;   // texture-mode UV ripple amplitude; 0 = off
+uniform sampler2D uShapeTex;
 
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -113,28 +117,47 @@ void main() {
   float ringBreak = uRingBreak * uNoiseEnabled;
   float n = vnoise(cellUv * uNoiseScale + vec2(t, t * 0.7));
 
-  // Central disk: bright inside uDiskRadius with smooth edge, modulated by noise
-  float disk = 1.0 - smoothstep(uDiskRadius * 0.6, uDiskRadius, r);
-  float diskBody = disk * (1.0 + (n - 0.5) * 2.0 * noiseAmount);
+  float source;
+  if (uShapeMode > 0.5) {
+    // Texture-driven shape. Map aspect-corrected dv into [0,1] UV centered on
+    // uCenter. Outside the texture rect the shape contributes 0.
+    float invExtent = 1.0 / max(uShapeScale * 2.0, 0.0001);
+    vec2 shapeUv = dv * invExtent + 0.5;
+    shapeUv.y = 1.0 - shapeUv.y;
+    if (uRippleAmount > 0.0001) {
+      // Radial sinusoidal wave, displacement applied only along the y-axis →
+      // shape undulates vertically as concentric rings of motion.
+      float distR = length(dv);
+      float wave = sin(distR * 22.0 - uTime * 3.0);
+      shapeUv.y += wave * uRippleAmount;
+    }
+    float inside = step(0.0, shapeUv.x) * step(shapeUv.x, 1.0)
+                 * step(0.0, shapeUv.y) * step(shapeUv.y, 1.0);
+    float texAlpha = texture(uShapeTex, shapeUv).a;
+    source = texAlpha * inside * (1.0 + (n - 0.5) * 2.0 * noiseAmount);
+  } else {
+    // Central disk + concentric rings, broken and modulated by angular noise.
+    float disk = 1.0 - smoothstep(uDiskRadius * 0.6, uDiskRadius, r);
+    float diskBody = disk * (1.0 + (n - 0.5) * 2.0 * noiseAmount);
 
-  // Concentric rings outside the disk, broken and modulated by angular noise.
-  float rings = 0.0;
-  for (int i = 1; i <= 10; i++) {
-    if (i > uRingCount) break;
-    float ringR = uDiskRadius + float(i) * uRingSpacing;
-    float halfWidth = max(uRingSpacing * uRingWidth, 0.005);
-    float d = (r - ringR) / halfWidth;
-    float pulse = exp(-d * d);
+    float rings = 0.0;
+    for (int i = 1; i <= 10; i++) {
+      if (i > uRingCount) break;
+      float ringR = uDiskRadius + float(i) * uRingSpacing;
+      float halfWidth = max(uRingSpacing * uRingWidth, 0.005);
+      float d = (r - ringR) / halfWidth;
+      float pulse = exp(-d * d);
 
-    float ringNoise = vnoise(vec2(angle * uNoiseScale * 0.5 + float(i) * 13.0, t));
-    pulse *= mix(1.0, ringNoise, ringBreak);
-    pulse *= 1.0 + (ringNoise - 0.5) * 2.0 * noiseAmount;
-    pulse *= pow(uRingFalloff, float(i - 1));
+      float ringNoise = vnoise(vec2(angle * uNoiseScale * 0.5 + float(i) * 13.0, t));
+      pulse *= mix(1.0, ringNoise, ringBreak);
+      pulse *= 1.0 + (ringNoise - 0.5) * 2.0 * noiseAmount;
+      pulse *= pow(uRingFalloff, float(i - 1));
 
-    rings = max(rings, pulse);
+      rings = max(rings, pulse);
+    }
+    source = max(diskBody, rings);
   }
-
-  float source = clamp(max(diskBody, rings), 0.0, 1.0);
+  source = clamp(source, 0.0, 1.0);
 
   // Mouse spotlight: smooth blob of intensity that follows the cursor.
   // Radius breathes over time via a sine pulse.

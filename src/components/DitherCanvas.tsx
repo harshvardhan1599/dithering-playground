@@ -1,8 +1,64 @@
 import { ScreenQuad } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { ditherFragment, ditherVertex } from "../shaders/dither";
+import type { Shape } from "../shapes";
+
+const PLACEHOLDER_TEX = (() => {
+  const tex = new THREE.DataTexture(
+    new Uint8Array([0, 0, 0, 0]),
+    1,
+    1,
+    THREE.RGBAFormat,
+  );
+  tex.needsUpdate = true;
+  return tex;
+})();
+
+function rasterizeSvgToTexture(svg: string, size = 512): Promise<THREE.Texture> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("2D context unavailable"));
+        return;
+      }
+      const aspect = (img.width || size) / (img.height || size);
+      let w = size;
+      let h = size;
+      if (aspect > 1) h = size / aspect;
+      else w = size * aspect;
+      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+
+      const imgData = ctx.getImageData(0, 0, size, size);
+      // Copy the canvas bytes into a fresh Uint8Array — three.js's DataTexture
+      // path is more reliable than CanvasTexture upload for this use case.
+      const bytes = new Uint8Array(imgData.data.length);
+      bytes.set(imgData.data);
+      const tex = new THREE.DataTexture(
+        bytes,
+        size,
+        size,
+        THREE.RGBAFormat,
+        THREE.UnsignedByteType,
+      );
+      tex.minFilter = THREE.LinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      tex.wrapS = THREE.ClampToEdgeWrapping;
+      tex.wrapT = THREE.ClampToEdgeWrapping;
+      tex.needsUpdate = true;
+      resolve(tex);
+    };
+    img.onerror = (e) => reject(e);
+    // Data URL is more portable than a Blob URL for SVG <-> Image rasterization.
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  });
+}
 
 export type DitherControls = {
   centerX: number;
@@ -37,11 +93,15 @@ export type DitherLayerVisibility = {
 export function DitherMesh({
   controls,
   visibility,
+  shape,
 }: {
   controls: DitherControls;
   visibility: DitherLayerVisibility;
+  shape: Shape;
 }) {
   const matRef = useRef<THREE.ShaderMaterial>(null!);
+  const textureReadyRef = useRef(false);
+  const textureRef = useRef<THREE.Texture | null>(null);
 
   const uniforms = useMemo(
     () => ({
@@ -69,11 +129,38 @@ export function DitherMesh({
       uShapeEnabled: { value: 1 },
       uNoiseEnabled: { value: 1 },
       uDotsEnabled: { value: 1 },
+      uShapeMode: { value: 0 },
+      uShapeScale: { value: 0.3 },
+      uRippleAmount: { value: 0 },
+      uShapeTex: { value: PLACEHOLDER_TEX as THREE.Texture },
       uOpacity: { value: 1 },
       uColor: { value: new THREE.Color("#ffffff") },
     }),
     [],
   );
+
+  useEffect(() => {
+    textureReadyRef.current = false;
+    if (shape.kind === "analytic") return;
+    let cancelled = false;
+    rasterizeSvgToTexture(shape.svg)
+      .then((tex) => {
+        if (cancelled) {
+          tex.dispose();
+          return;
+        }
+        const old = textureRef.current;
+        textureRef.current = tex;
+        textureReadyRef.current = true;
+        if (old) old.dispose();
+      })
+      .catch((err) =>
+        console.error("[DitherMesh] SVG rasterize failed", err),
+      );
+    return () => {
+      cancelled = true;
+    };
+  }, [shape]);
 
   useFrame((state) => {
     const m = matRef.current;
@@ -107,6 +194,12 @@ export function DitherMesh({
     u.uShapeEnabled.value = visibility.shape ? 1 : 0;
     u.uNoiseEnabled.value = visibility.noise ? 1 : 0;
     u.uDotsEnabled.value = visibility.dots ? 1 : 0;
+    const useTex =
+      shape.kind === "svg" && textureReadyRef.current && textureRef.current;
+    u.uShapeMode.value = useTex ? 1 : 0;
+    u.uShapeTex.value = useTex ? textureRef.current : PLACEHOLDER_TEX;
+    u.uRippleAmount.value =
+      useTex && shape.kind === "svg" ? (shape.ripple ?? 0) : 0;
     u.uOpacity.value = controls.opacity;
     u.uColor.value.set(controls.color);
   });

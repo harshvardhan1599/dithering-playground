@@ -7,6 +7,7 @@ import {
   type LayerVisibility,
 } from "./components/LayersPanel";
 import { BACKGROUNDS, PropertiesPanel } from "./components/PropertiesPanel";
+import { SHAPES } from "./shapes";
 
 const INITIAL_DITHER: DitherControls = {
   centerX: 50,
@@ -36,6 +37,7 @@ function App() {
   const [ditherControls, setDitherControls] =
     useState<DitherControls>(INITIAL_DITHER);
   const [backgroundIndex, setBackgroundIndex] = useState(0);
+  const [shapeIndex, setShapeIndex] = useState(0);
 
   const updateDither = <K extends keyof DitherControls>(
     key: K,
@@ -100,6 +102,7 @@ function App() {
             noise: visibility.noise,
             dots: visibility.dots,
           }}
+          shape={SHAPES[shapeIndex]}
         />
       </Canvas>
       <LayersPanel visibility={visibility} onToggle={toggleLayer} />
@@ -108,6 +111,8 @@ function App() {
         onChange={updateDither}
         backgroundIndex={backgroundIndex}
         onBackgroundChange={setBackgroundIndex}
+        shapeIndex={shapeIndex}
+        onShapeChange={setShapeIndex}
       />
     </div>
   );
