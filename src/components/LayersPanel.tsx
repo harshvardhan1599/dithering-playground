@@ -1,6 +1,12 @@
 import { useState, type ComponentType } from "react";
 
-export type LayerKey = "dots" | "noise" | "shape" | "grid" | "gradient";
+export type LayerKey =
+  | "dots"
+  | "noise"
+  | "shape"
+  | "grid"
+  | "grain"
+  | "gradient";
 
 export type LayerVisibility = Record<LayerKey, boolean>;
 
@@ -120,6 +126,22 @@ function GridIcon() {
   );
 }
 
+function GrainIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <circle cx="5" cy="5" r="1" fill={STROKE} />
+      <circle cx="10" cy="5" r="1" fill={STROKE} />
+      <circle cx="15" cy="5" r="1" fill={STROKE} />
+      <circle cx="5" cy="10" r="1" fill={STROKE} />
+      <circle cx="10" cy="10" r="1" fill={STROKE} />
+      <circle cx="15" cy="10" r="1" fill={STROKE} />
+      <circle cx="5" cy="15" r="1" fill={STROKE} />
+      <circle cx="10" cy="15" r="1" fill={STROKE} />
+      <circle cx="15" cy="15" r="1" fill={STROKE} />
+    </svg>
+  );
+}
+
 function GradientIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -235,6 +257,7 @@ const LAYERS: { key: LayerKey; label: string; Icon: ComponentType }[] = [
   { key: "noise", label: "Noise", Icon: NoiseIcon },
   { key: "shape", label: "Shape", Icon: ShapeIcon },
   { key: "grid", label: "Grid", Icon: GridIcon },
+  { key: "grain", label: "Grain", Icon: GrainIcon },
   { key: "gradient", label: "Gradient", Icon: GradientIcon },
 ];
 

@@ -82,6 +82,13 @@ export const BACKGROUNDS: Background[] = [
       "radial-gradient(circle at 35% 30%, #4AE0C0 0%, #1A8090 55%, #002030 100%)",
     page: "linear-gradient(to bottom, #002030 0%, #1A8090 50%, #4AE0C0 100%)",
   },
+  {
+    id: "candy",
+    swatch:
+      "radial-gradient(circle at 35% 30%, #000000 0%, #293684 33%, #D16AB3 66%, #FBF6FA 100%)",
+    page:
+      "linear-gradient(to bottom, #000000 0%, #293684 33%, #D16AB3 66%, #FBF6FA 100%)",
+  },
 ];
 
 const STROKE = "currentColor";

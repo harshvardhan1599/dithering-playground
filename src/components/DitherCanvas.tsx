@@ -200,6 +200,8 @@ export function DitherMesh({
     u.uShapeTex.value = useTex ? textureRef.current : PLACEHOLDER_TEX;
     u.uRippleAmount.value =
       useTex && shape.kind === "svg" ? (shape.ripple ?? 0) : 0;
+    u.uShapeScale.value =
+      shape.kind === "svg" ? (shape.scale ?? 0.3) : 0.3;
     u.uOpacity.value = controls.opacity;
     u.uColor.value.set(controls.color);
   });
