@@ -155,6 +155,7 @@ function decimalsFor(step: number) {
 
 type SliderProps = {
   label: string;
+  labelClassName?: string;
   value: number;
   min: number;
   max: number;
@@ -162,7 +163,15 @@ type SliderProps = {
   onChange: (v: number) => void;
 };
 
-function Slider({ label, value, min, max, step, onChange }: SliderProps) {
+function Slider({
+  label,
+  labelClassName,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+}: SliderProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const decimals = useMemo(() => decimalsFor(step), [step]);
 
@@ -192,23 +201,37 @@ function Slider({ label, value, min, max, step, onChange }: SliderProps) {
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between text-[12px]">
-        <span className="text-white/70">{label}</span>
+        <span className={labelClassName ?? "text-white/70"}>{label}</span>
         <span className="tabular-nums text-white/80">{display}</span>
       </div>
       <div
         ref={trackRef}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
-        className="relative h-3 cursor-pointer touch-none select-none"
+        className="relative h-6 cursor-pointer touch-none select-none"
       >
-        <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-white/20" />
         <div
-          className="absolute top-1/2 h-px -translate-y-1/2 bg-white/80"
-          style={{ width: `${pct}%` }}
+          className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-white/20"
+          style={{
+            boxShadow: "none",
+          }}
         />
         <div
-          className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow"
-          style={{ left: `${pct}%` }}
+          className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-white/80"
+          style={{
+            width: `${pct}%`,
+            boxShadow: "none",
+          }}
+        />
+        <div
+          className="absolute top-1/2 h-[22px] w-[22px] -translate-x-1/2 -translate-y-1/2 rounded-lg"
+          style={{
+            left: `${pct}%`,
+            background:
+              "linear-gradient(#DFDFE1, #DFDFE1) padding-box, linear-gradient(to bottom, #FFFFFF, #A7A7A7) border-box",
+            border: "2px solid transparent",
+            boxShadow: "0 1px 2px 0 rgba(0,0,0,0.18)",
+          }}
         />
       </div>
     </div>
@@ -218,7 +241,7 @@ function Slider({ label, value, min, max, step, onChange }: SliderProps) {
 type SelectOption<T extends number | string> = { value: T; label: string };
 
 type SelectProps<T extends number | string> = {
-  label: string;
+  label?: string;
   value: T;
   options: readonly SelectOption<T>[];
   onChange: (v: T) => void;
@@ -265,7 +288,7 @@ function SelectField<T extends number | string>({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-[12px] text-white/70">{label}</span>
+      {label && <span className="text-[12px] text-white/70">{label}</span>}
       <button
         ref={buttonRef}
         type="button"
@@ -343,35 +366,17 @@ function ColorField({
 
 function Group({
   label,
-  defaultOpen = true,
   children,
 }: {
   label: string;
-  defaultOpen?: boolean;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
   return (
     <div>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between px-3 py-2 text-[11px] font-medium tracking-[0.18em] text-white/80 hover:text-white"
-        aria-expanded={open}
-      >
-        <span>{label.toUpperCase()}</span>
-        <Chevron open={open} />
-      </button>
-      <div
-        className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${
-          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-        }`}
-        aria-hidden={!open}
-      >
-        <div className="overflow-hidden">
-          <div className="flex flex-col gap-3.5 px-3 pb-3">{children}</div>
-        </div>
+      <div className="px-3 py-2 text-[11px] font-medium tracking-[0.18em] text-white/80">
+        {label.toUpperCase()}
       </div>
+      <div className="flex flex-col gap-3.5 px-3 pb-3">{children}</div>
     </div>
   );
 }
@@ -443,43 +448,29 @@ export function PropertiesPanel({
                 })}
               </div>
             </Group>
-            <div className="h-px bg-white/10" />
-            <Group label="Shape">
-              <SelectField
-                label="shape"
-                value={shapeIndex}
-                options={SHAPE_OPTIONS}
-                onChange={onShapeChange}
-              />
-            </Group>
-            <div className="h-px bg-white/10" />
-            <Group label="Noise">
+            <div className="flex items-center justify-between gap-3 px-3 py-3">
+              <span className="text-[11px] font-medium tracking-[0.18em] text-white/80">
+                SHAPE
+              </span>
+              <div className="w-[140px]">
+                <SelectField
+                  value={shapeIndex}
+                  options={SHAPE_OPTIONS}
+                  onChange={onShapeChange}
+                />
+              </div>
+            </div>
+            <div className="px-3 py-3">
               <Slider
-                label="amount"
+                label="NOISE"
+                labelClassName="text-[11px] font-medium tracking-[0.18em] text-white/80"
                 value={controls.noiseAmount}
                 min={0}
                 max={1}
                 step={0.01}
                 onChange={num("noiseAmount")}
               />
-              <Slider
-                label="scale"
-                value={controls.noiseScale}
-                min={0.5}
-                max={30}
-                step={0.5}
-                onChange={num("noiseScale")}
-              />
-              <Slider
-                label="speed"
-                value={controls.noiseSpeed}
-                min={0}
-                max={1}
-                step={0.01}
-                onChange={num("noiseSpeed")}
-              />
-            </Group>
-            <div className="h-px bg-white/10" />
+            </div>
             <Group label="Halftone">
               <Slider
                 label="pixel size"
@@ -512,7 +503,6 @@ export function PropertiesPanel({
                 onChange={num("dotJitter")}
               />
             </Group>
-            <div className="h-px bg-white/10" />
             <Group label="Render">
               <ColorField
                 label="color"
