@@ -9,6 +9,7 @@ import {
 import { createPortal } from "react-dom";
 import type { DitherControls } from "./DitherCanvas";
 import { SHAPES } from "../shapes";
+import { useSounds } from "../sounds";
 
 const SHAPE_OPTIONS = SHAPES.map((s, i) => ({ value: i, label: s.label }));
 
@@ -22,29 +23,35 @@ type Props = {
   onBackgroundChange: (index: number) => void;
   shapeIndex: number;
   onShapeChange: (index: number) => void;
+  darkUI?: boolean;
 };
 
 export type Background = {
   id: string;
+  name: string;
   swatch: string;
   page: string;
+  darkUI?: boolean;
 };
 
 export const BACKGROUNDS: Background[] = [
   {
     id: "blue",
+    name: "Midnight",
     swatch:
       "radial-gradient(circle at 35% 30%, #4A7DEF 0%, #002A9A 55%, #00021B 100%)",
     page: "linear-gradient(to bottom, #00021B 0%, #002A9A 40%, #0081F3 69%, #F1F8FE 100%)",
   },
   {
     id: "ember",
+    name: "Ember",
     swatch:
       "radial-gradient(circle at 35% 30%, #000000 0%, #872F03 33%, #D87518 66%, #FFD99E 100%)",
     page: "linear-gradient(to bottom, #000000 0%, #872F03 33%, #D87518 66%, #FFD99E 100%)",
   },
   {
     id: "dusk",
+    name: "Dusk",
     swatch:
       "radial-gradient(circle at 35% 30%, #1F123E 0%, #754A78 38%, #C86B75 56%, #FD7A23 78%, #C72B03 88%, #050005 100%)",
     page:
@@ -52,6 +59,7 @@ export const BACKGROUNDS: Background[] = [
   },
   {
     id: "dawn",
+    name: "Dawn",
     swatch:
       "radial-gradient(circle at 35% 30%, #03030D 15%, #0273C9 35%, #FDD88F 55%, #F6B83D 70%, #FF8F2D 85%, #FE0000 100%)",
     page:
@@ -59,47 +67,69 @@ export const BACKGROUNDS: Background[] = [
   },
   {
     id: "orange",
+    name: "Marigold",
     swatch:
       "radial-gradient(circle at 35% 30%, #E08A4A 0%, #B0501A 55%, #2A1000 100%)",
     page: "linear-gradient(to bottom, #2A1000 0%, #5A2818 40%, #B0501A 70%, #E08A4A 100%)",
   },
   {
     id: "purple",
+    name: "Lavender",
     swatch:
       "radial-gradient(circle at 35% 30%, #C880E0 0%, #8A40C0 55%, #4A1080 100%)",
     page: "linear-gradient(to bottom, #4A1080 0%, #6A20A0 40%, #8A40C0 70%, #C880E0 100%)",
   },
   {
     id: "sunset",
+    name: "Mulberry",
     swatch:
       "radial-gradient(circle at 50% 20%, #6A2A8A 0%, #2A1820 50%, #E04020 100%)",
     page: "linear-gradient(to bottom, #4A1A50 0%, #2A1A30 40%, #E04020 100%)",
   },
   {
     id: "teal",
+    name: "Lagoon",
     swatch:
       "radial-gradient(circle at 35% 30%, #4AE0C0 0%, #1A8090 55%, #002030 100%)",
     page: "linear-gradient(to bottom, #002030 0%, #1A8090 50%, #4AE0C0 100%)",
   },
   {
     id: "candy",
+    name: "Bubblegum",
     swatch:
       "radial-gradient(circle at 35% 30%, #000000 0%, #293684 33%, #D16AB3 66%, #FBF6FA 100%)",
     page:
       "linear-gradient(to bottom, #000000 0%, #293684 33%, #D16AB3 66%, #FBF6FA 100%)",
   },
+  {
+    id: "glacier",
+    name: "Glacier",
+    swatch:
+      "radial-gradient(circle at 35% 30%, #010609 0%, #1A648B 50%, #BDE8FF 100%)",
+    page:
+      "linear-gradient(to bottom, #010609 0%, #1A648B 50%, #BDE8FF 100%)",
+  },
+  // {
+  //   id: "lime",
+  //   name: "Lime",
+  //   swatch:
+  //     "radial-gradient(circle at 35% 30%, #15FB3F 0%, #FFF701 50%, #FEFEFE 100%)",
+  //   page:
+  //     "linear-gradient(to bottom, #15FB3F 0%, #FFF701 50%, #FEFEFE 100%)",
+  //   darkUI: true,
+  // },
+  // {
+  //   id: "hibiscus",
+  //   name: "Hibiscus",
+  //   swatch:
+  //     "radial-gradient(circle at 35% 30%, #EF765C 0%, #FC0146 30%, #FD6337 50%, #DEC7D9 100%)",
+  //   page:
+  //     "linear-gradient(to bottom, #EF765C 0%, #FC0146 30%, #FD6337 50%, #DEC7D9 100%)",
+  //   darkUI: true,
+  // },
 ];
 
 const STROKE = "currentColor";
-
-const SECTION_LABEL =
-  "text-[11px] font-medium tracking-[0.18em] text-white/80";
-
-const MATRIX_OPTIONS = [
-  { value: 0, label: "Bayer 2×2" },
-  { value: 1, label: "Bayer 4×4" },
-  { value: 2, label: "Bayer 8×8" },
-] as const;
 
 function HideToggleIcon() {
   return (
@@ -163,6 +193,7 @@ type SliderProps = {
   max: number;
   step: number;
   onChange: (v: number) => void;
+  darkUI?: boolean;
 };
 
 function Slider({
@@ -173,9 +204,11 @@ function Slider({
   max,
   step,
   onChange,
+  darkUI = false,
 }: SliderProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const decimals = useMemo(() => decimalsFor(step), [step]);
+  const { play } = useSounds();
 
   const setFromClientX = (clientX: number) => {
     const el = trackRef.current;
@@ -184,7 +217,11 @@ function Slider({
     const t = clamp((clientX - rect.left) / rect.width, 0, 1);
     const raw = min + t * (max - min);
     const snapped = Math.round(raw / step) * step;
-    onChange(clamp(snapped, min, max));
+    const next = clamp(snapped, min, max);
+    if (next !== value) {
+      play("tick");
+      onChange(next);
+    }
   };
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -203,8 +240,18 @@ function Slider({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between text-[12px]">
-        <span className={labelClassName ?? "text-white/70"}>{label}</span>
-        <span className="tabular-nums text-white/80">{display}</span>
+        <span
+          className={
+            labelClassName ?? (darkUI ? "text-black/70" : "text-white/70")
+          }
+        >
+          {label}
+        </span>
+        <span
+          className={`tabular-nums ${darkUI ? "text-black/80" : "text-white/80"}`}
+        >
+          {display}
+        </span>
       </div>
       <div
         ref={trackRef}
@@ -213,13 +260,17 @@ function Slider({
         className="relative h-6 cursor-pointer touch-none select-none"
       >
         <div
-          className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-white/20"
+          className={`absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full ${
+            darkUI ? "bg-black/20" : "bg-white/20"
+          }`}
           style={{
             boxShadow: "none",
           }}
         />
         <div
-          className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-white/80"
+          className={`absolute top-1/2 h-1 -translate-y-1/2 rounded-full ${
+            darkUI ? "bg-black/80" : "bg-white/80"
+          }`}
           style={{
             width: `${pct}%`,
             boxShadow: "none",
@@ -248,6 +299,7 @@ type KnobProps = {
   max: number;
   step: number;
   onChange: (v: number) => void;
+  darkUI?: boolean;
 };
 
 const KNOB_DISK = 88;
@@ -263,10 +315,16 @@ function Knob({
   max,
   step,
   onChange,
+  darkUI = false,
 }: KnobProps) {
   const knobRef = useRef<HTMLDivElement>(null);
   const valueRef = useRef(value);
   const wheelAccumRef = useRef(0);
+  const { play } = useSounds();
+  const playRef = useRef(play);
+  useEffect(() => {
+    playRef.current = play;
+  });
 
   useEffect(() => {
     valueRef.current = value;
@@ -292,13 +350,19 @@ function Knob({
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     const next = valueFromPointer(e.clientX, e.clientY);
-    if (next != null && next !== value) onChange(next);
+    if (next != null && next !== value) {
+      play("tick");
+      onChange(next);
+    }
   };
 
   const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.buttons === 0) return;
     const next = valueFromPointer(e.clientX, e.clientY);
-    if (next != null && next !== valueRef.current) onChange(next);
+    if (next != null && next !== valueRef.current) {
+      play("tick");
+      onChange(next);
+    }
   };
 
   // Native wheel listener so preventDefault actually stops the page from
@@ -317,7 +381,10 @@ function Knob({
       const sign = Math.sign(wheelAccumRef.current);
       wheelAccumRef.current = 0;
       const next = clamp(valueRef.current + sign * step, min, max);
-      if (next !== valueRef.current) onChange(next);
+      if (next !== valueRef.current) {
+        playRef.current("tick");
+        onChange(next);
+      }
     };
     el.addEventListener("wheel", handler, { passive: false });
     return () => el.removeEventListener("wheel", handler);
@@ -337,8 +404,18 @@ function Knob({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between text-[12px]">
-        <span className={labelClassName ?? "text-white/70"}>{label}</span>
-        <span className="tabular-nums text-white/80">{Math.round(value)}</span>
+        <span
+          className={
+            labelClassName ?? (darkUI ? "text-black/70" : "text-white/70")
+          }
+        >
+          {label}
+        </span>
+        <span
+          className={`tabular-nums ${darkUI ? "text-black/80" : "text-white/80"}`}
+        >
+          {Math.round(value)}
+        </span>
       </div>
       <div
         className="relative mx-auto"
@@ -350,12 +427,17 @@ function Knob({
           const x = Math.sin(rad) * KNOB_NUM_R;
           const y = -Math.cos(rad) * KNOB_NUM_R;
           const active = v === Math.round(value);
+          const numColor = darkUI
+            ? active
+              ? "text-black"
+              : "text-black/55"
+            : active
+              ? "text-white"
+              : "text-white/55";
           return (
             <span
               key={v}
-              className={`pointer-events-none absolute text-[10px] tabular-nums ${
-                active ? "text-white" : "text-white/55"
-              }`}
+              className={`pointer-events-none absolute text-[10px] tabular-nums ${numColor}`}
               style={{
                 left: "50%",
                 top: "50%",
@@ -407,6 +489,7 @@ type SelectProps<T extends number | string> = {
   value: T;
   options: readonly SelectOption<T>[];
   onChange: (v: T) => void;
+  darkUI?: boolean;
 };
 
 function SelectField<T extends number | string>({
@@ -414,10 +497,12 @@ function SelectField<T extends number | string>({
   value,
   options,
   onChange,
+  darkUI = false,
 }: SelectProps<T>) {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { play } = useSounds();
   const [pos, setPos] = useState<{
     top: number;
     left: number;
@@ -448,14 +533,29 @@ function SelectField<T extends number | string>({
 
   const current = options.find((o) => o.value === value)?.label ?? "";
 
+  const buttonClasses = darkUI
+    ? "border-black/20 bg-black/10 text-black/90 hover:bg-black/15"
+    : "border-white/20 bg-white/10 text-white/90 hover:bg-white/15";
+  const menuShell = darkUI
+    ? "border-black/20 bg-white/70"
+    : "border-white/20 bg-black/70";
+  const menuItem = (active: boolean) =>
+    darkUI
+      ? `${active ? "text-black" : "text-black/80"} hover:bg-black/10`
+      : `${active ? "text-white" : "text-white/80"} hover:bg-white/10`;
+  const labelColor = darkUI ? "text-black/70" : "text-white/70";
+
   return (
     <div className="flex flex-col gap-1.5">
-      {label && <span className="text-[12px] text-white/70">{label}</span>}
+      {label && <span className={`text-[12px] ${labelColor}`}>{label}</span>}
       <button
         ref={buttonRef}
         type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between rounded-md border border-white/20 bg-white/10 px-2.5 py-1.5 text-[12px] text-white/90 hover:bg-white/15"
+        onClick={() => {
+          play("click");
+          setOpen((o) => !o);
+        }}
+        className={`flex w-full items-center justify-between rounded-md border px-2.5 py-1.5 text-[12px] ${buttonClasses}`}
       >
         <span>{current}</span>
         <Chevron open={open} />
@@ -465,7 +565,7 @@ function SelectField<T extends number | string>({
         createPortal(
           <div
             ref={menuRef}
-            className="overflow-hidden rounded-md border border-white/20 bg-black/70 backdrop-blur-xl"
+            className={`overflow-hidden rounded-md border backdrop-blur-xl ${menuShell}`}
             style={{
               position: "fixed",
               top: pos.top,
@@ -480,12 +580,11 @@ function SelectField<T extends number | string>({
                 key={String(o.value)}
                 type="button"
                 onClick={() => {
+                  play("tick");
                   onChange(o.value);
                   setOpen(false);
                 }}
-                className={`flex w-full items-center px-2.5 py-1.5 text-[12px] hover:bg-white/10 ${
-                  o.value === value ? "text-white" : "text-white/80"
-                }`}
+                className={`flex w-full items-center px-2.5 py-1.5 text-[12px] ${menuItem(o.value === value)}`}
               >
                 {o.label}
               </button>
@@ -502,16 +601,28 @@ function ColorField({
   labelClassName,
   value,
   onChange,
+  darkUI = false,
 }: {
   label: string;
   labelClassName?: string;
   value: string;
   onChange: (v: string) => void;
+  darkUI?: boolean;
 }) {
+  const { play } = useSounds();
   return (
     <div className="flex items-center justify-between gap-3 text-[12px]">
-      <span className={labelClassName ?? "text-white/70"}>{label}</span>
-      <label className="flex cursor-pointer items-center gap-2">
+      <span
+        className={
+          labelClassName ?? (darkUI ? "text-black/70" : "text-white/70")
+        }
+      >
+        {label}
+      </span>
+      <label
+        className="flex cursor-pointer items-center gap-2"
+        onClick={() => play("click")}
+      >
         <input
           type="color"
           value={value}
@@ -519,10 +630,14 @@ function ColorField({
           className="sr-only"
         />
         <span
-          className="block h-5 w-5 rounded-md border border-white/20"
+          className={`block h-5 w-5 rounded-md border ${darkUI ? "border-black/20" : "border-white/20"}`}
           style={{ backgroundColor: value }}
         />
-        <span className="tabular-nums text-white/80 uppercase">{value}</span>
+        <span
+          className={`tabular-nums uppercase ${darkUI ? "text-black/80" : "text-white/80"}`}
+        >
+          {value}
+        </span>
       </label>
     </div>
   );
@@ -535,29 +650,50 @@ export function PropertiesPanel({
   onBackgroundChange,
   shapeIndex,
   onShapeChange,
+  darkUI = false,
 }: Props) {
   const [collapsed, setCollapsed] = useState(false);
+  const { play } = useSounds();
 
   const num =
     <K extends keyof DitherControls>(key: K) =>
     (v: number) =>
       onChange(key, v as DitherControls[K]);
 
+  const sectionLabel = `text-[11px] font-medium tracking-[0.18em] ${darkUI ? "text-black/80" : "text-white/80"}`;
+  const panelShell = darkUI
+    ? "border-black/20 bg-black/20 text-black"
+    : "border-white/20 bg-white/20 text-white";
+  const headerLabel = darkUI ? "text-black/80" : "text-white/80";
+  const toggleBtn = darkUI
+    ? "text-black/80 hover:text-black"
+    : "text-white/80 hover:text-white";
+  const divider = darkUI ? "bg-black/15" : "bg-white/15";
+  const ringSelected = darkUI ? "ring-black" : "ring-white";
+  const ringDefault = darkUI
+    ? "ring-black/25 hover:ring-black/60"
+    : "ring-white/25 hover:ring-white/60";
+
   return (
     <div
-      className="fixed top-4 right-4 z-10 w-[280px] rounded-2xl border border-white/20 bg-white/20 text-white shadow-lg backdrop-blur-xl"
+      className={`fixed top-4 right-4 z-10 w-[280px] rounded-2xl border shadow-lg backdrop-blur-xl ${panelShell}`}
       style={{ fontFamily: "'Departure Mono', ui-monospace, monospace" }}
     >
       <div className="flex items-center justify-between px-4 py-3">
-        <span className="text-[13px] font-medium tracking-[0.18em] text-white/80">
+        <span
+          className={`text-[13px] font-medium tracking-[0.18em] ${headerLabel}`}
+        >
           PROPERTIES
         </span>
         <button
           type="button"
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={() => {
+            play("click");
+            setCollapsed((c) => !c);
+          }}
           aria-label={collapsed ? "Expand panel" : "Collapse panel"}
           aria-expanded={!collapsed}
-          className="grid h-6 w-6 place-items-center rounded text-white/80 hover:text-white"
+          className={`grid h-6 w-6 place-items-center rounded ${toggleBtn}`}
         >
           <HideToggleIcon />
         </button>
@@ -571,7 +707,7 @@ export function PropertiesPanel({
         aria-hidden={collapsed}
       >
         <div className="overflow-hidden">
-          <div className="h-px bg-white/15" />
+          <div className={`h-px ${divider}`} />
           <div className="max-h-[80vh] overflow-y-auto">
             <div className="px-3 py-3">
               <div className="grid grid-cols-5 gap-2 px-1 py-1">
@@ -581,13 +717,14 @@ export function PropertiesPanel({
                     <button
                       key={bg.id}
                       type="button"
-                      onClick={() => onBackgroundChange(i)}
+                      onClick={() => {
+                        play("swatch");
+                        onBackgroundChange(i);
+                      }}
                       aria-label={bg.id}
                       aria-pressed={selected}
                       className={`block h-7 w-7 shrink-0 rounded-full transition-shadow ${
-                        selected
-                          ? "ring-2 ring-white"
-                          : "ring-1 ring-white/25 hover:ring-2 hover:ring-white/60"
+                        selected ? `ring-2 ${ringSelected}` : `ring-1 ${ringDefault}`
                       }`}
                       style={{ background: bg.swatch }}
                     />
@@ -596,71 +733,71 @@ export function PropertiesPanel({
               </div>
             </div>
             <div className="flex items-center justify-between gap-3 px-3 py-3">
-              <span className={SECTION_LABEL}>SHAPE</span>
+              <span className={sectionLabel}>SHAPE</span>
               <div className="w-[140px]">
                 <SelectField
                   value={shapeIndex}
                   options={SHAPE_OPTIONS}
                   onChange={onShapeChange}
+                  darkUI={darkUI}
                 />
               </div>
             </div>
             <div className="px-3 py-3">
-              <Slider
-                label="NOISE"
-                labelClassName={SECTION_LABEL}
-                value={controls.noiseAmount}
-                min={0}
-                max={1}
-                step={0.01}
-                onChange={num("noiseAmount")}
+              <ColorField
+                label="COLOR"
+                labelClassName={sectionLabel}
+                value={controls.color}
+                onChange={(v) => onChange("color", v)}
+                darkUI={darkUI}
               />
             </div>
-            <div className="flex flex-col gap-3.5 px-3 py-3">
+            <div className="px-3 py-3">
               <Knob
                 label="PIXEL SIZE"
-                labelClassName={SECTION_LABEL}
+                labelClassName={sectionLabel}
                 value={controls.pixelSize}
                 min={1}
                 max={12}
                 step={1}
                 onChange={num("pixelSize")}
+                darkUI={darkUI}
               />
-              <div className="flex items-center justify-between gap-3">
-                <span className={SECTION_LABEL}>MATRIX</span>
-                <div className="w-[140px]">
-                  <SelectField
-                    value={controls.matrix}
-                    options={MATRIX_OPTIONS}
-                    onChange={(v) => onChange("matrix", v)}
-                  />
-                </div>
-              </div>
+            </div>
+            <div className="px-3 py-3">
+              <Slider
+                label="NOISE"
+                labelClassName={sectionLabel}
+                value={controls.noiseAmount}
+                min={0}
+                max={1}
+                step={0.01}
+                onChange={num("noiseAmount")}
+                darkUI={darkUI}
+              />
+            </div>
+            <div className="px-3 py-3">
               <Slider
                 label="SPARSITY"
-                labelClassName={SECTION_LABEL}
+                labelClassName={sectionLabel}
                 value={controls.sparsity}
                 min={0}
                 max={1}
                 step={0.01}
                 onChange={num("sparsity")}
+                darkUI={darkUI}
               />
+            </div>
+            <div className="px-3 py-3">
               <Slider
                 label="DOT JITTER"
-                labelClassName={SECTION_LABEL}
+                labelClassName={sectionLabel}
                 value={controls.dotJitter}
                 min={0}
                 max={1}
                 step={0.01}
                 onChange={num("dotJitter")}
-              />
-            </div>
-            <div className="px-3 py-3">
-              <ColorField
-                label="COLOR"
-                labelClassName={SECTION_LABEL}
-                value={controls.color}
-                onChange={(v) => onChange("color", v)}
+                darkUI={darkUI}
               />
             </div>
           </div>

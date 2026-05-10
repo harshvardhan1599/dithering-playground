@@ -8,6 +8,35 @@ import {
 } from "./components/LayersPanel";
 import { BACKGROUNDS, PropertiesPanel } from "./components/PropertiesPanel";
 import { SHAPES } from "./shapes";
+import { SoundsProvider, useSounds } from "./sounds";
+
+function hexLum(hex: string): number {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function pickContrastColor(
+  pageGradient: string,
+  anchor: "top" | "bottom",
+): string {
+  const stops = pageGradient.match(/#[0-9A-Fa-f]{6}/g) ?? [];
+  if (stops.length === 0) return "#ffffff";
+  const anchorColor =
+    anchor === "top" ? stops[0] : stops[stops.length - 1];
+  const anchorLum = hexLum(anchorColor);
+  let best = stops[0];
+  let bestDist = Math.abs(hexLum(best) - anchorLum);
+  for (const c of stops) {
+    const d = Math.abs(hexLum(c) - anchorLum);
+    if (d > bestDist) {
+      best = c;
+      bestDist = d;
+    }
+  }
+  return best;
+}
 
 const INITIAL_DITHER: DitherControls = {
   centerX: 50,
@@ -33,7 +62,74 @@ const INITIAL_DITHER: DitherControls = {
   color: "#ffffff",
 };
 
+function SoundOnIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+      <path
+        d="M3 8v4h3l4 3V5L6 8H3Z"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M13 7c1.2 1 1.2 5 0 6"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+      <path
+        d="M15.5 5c2.2 1.7 2.2 8.3 0 10"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function SoundOffIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+      <path
+        d="M3 8v4h3l4 3V5L6 8H3Z"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <line
+        x1="13"
+        y1="7"
+        x2="18"
+        y2="13"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+      <line
+        x1="18"
+        y1="7"
+        x2="13"
+        y2="13"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function App() {
+  return (
+    <SoundsProvider>
+      <AppInner />
+    </SoundsProvider>
+  );
+}
+
+function AppInner() {
+  const { play, muted, setMuted } = useSounds();
   const [ditherControls, setDitherControls] =
     useState<DitherControls>(INITIAL_DITHER);
   const [backgroundIndex, setBackgroundIndex] = useState(0);
@@ -77,6 +173,16 @@ function App() {
 
   const toggleLayer = (key: LayerKey) =>
     setVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const darkUI = BACKGROUNDS[backgroundIndex].darkUI ?? false;
+  const titleColor = pickContrastColor(
+    BACKGROUNDS[backgroundIndex].page,
+    "top",
+  );
+  const footerColor = pickContrastColor(
+    BACKGROUNDS[backgroundIndex].page,
+    "bottom",
+  );
 
   return (
     <div className="fixed inset-0" style={{ background: "#000" }}>
@@ -128,7 +234,55 @@ function App() {
           shape={SHAPES[shapeIndex]}
         />
       </Canvas>
-      <LayersPanel visibility={visibility} onToggle={toggleLayer} />
+      <div
+        className="pointer-events-none fixed left-1/2 top-4 z-10 -translate-x-1/2 text-[12px] font-medium tracking-[0.18em]"
+        style={{
+          fontFamily: "'Departure Mono', ui-monospace, monospace",
+          color: titleColor,
+        }}
+      >
+        {SHAPES[shapeIndex].label.toUpperCase()}
+        <span className="mx-2" style={{ opacity: 0.4 }}>
+          /
+        </span>
+        {BACKGROUNDS[backgroundIndex].name.toUpperCase()}
+      </div>
+      <div
+        className="fixed bottom-4 left-4 z-10 text-[12px] tracking-[0.18em]"
+        style={{
+          fontFamily: "'Departure Mono', ui-monospace, monospace",
+          color: footerColor,
+        }}
+      >
+        <span style={{ opacity: 0.7 }}>MADE BY</span>{" "}
+        <a
+          href="https://harshvardhan.work"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline-offset-4 hover:underline"
+          onClick={() => play("click")}
+        >
+          HARSH
+        </a>
+      </div>
+      <button
+        type="button"
+        onClick={() => {
+          play("click");
+          setMuted(!muted);
+        }}
+        aria-label={muted ? "Unmute sounds" : "Mute sounds"}
+        aria-pressed={muted}
+        className="fixed bottom-4 right-4 z-10 grid h-8 w-8 place-items-center rounded transition-opacity hover:opacity-100"
+        style={{ color: footerColor, opacity: 0.7 }}
+      >
+        {muted ? <SoundOffIcon /> : <SoundOnIcon />}
+      </button>
+      <LayersPanel
+        visibility={visibility}
+        onToggle={toggleLayer}
+        darkUI={darkUI}
+      />
       <PropertiesPanel
         controls={ditherControls}
         onChange={updateDither}
@@ -136,6 +290,7 @@ function App() {
         onBackgroundChange={setBackgroundIndex}
         shapeIndex={shapeIndex}
         onShapeChange={setShapeIndex}
+        darkUI={darkUI}
       />
     </div>
   );

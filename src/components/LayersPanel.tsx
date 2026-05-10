@@ -1,4 +1,5 @@
 import { useState, type ComponentType } from "react";
+import { useSounds } from "../sounds";
 
 export type LayerKey =
   | "dots"
@@ -13,6 +14,7 @@ export type LayerVisibility = Record<LayerKey, boolean>;
 type Props = {
   visibility: LayerVisibility;
   onToggle: (key: LayerKey) => void;
+  darkUI?: boolean;
 };
 
 const STROKE = "currentColor";
@@ -261,24 +263,47 @@ const LAYERS: { key: LayerKey; label: string; Icon: ComponentType }[] = [
   { key: "gradient", label: "Gradient", Icon: GradientIcon },
 ];
 
-export function LayersPanel({ visibility, onToggle }: Props) {
+export function LayersPanel({ visibility, onToggle, darkUI = false }: Props) {
   const [collapsed, setCollapsed] = useState(false);
+  const { play } = useSounds();
+
+  const panelClasses = darkUI
+    ? "border-black/20 bg-black/20 text-black"
+    : "border-white/20 bg-white/20 text-white";
+  const headerLabel = darkUI ? "text-black/80" : "text-white/80";
+  const toggleBtn = darkUI
+    ? "text-black/80 hover:text-black"
+    : "text-white/80 hover:text-white";
+  const divider = darkUI ? "bg-black/15" : "bg-white/15";
+  const rowHover = darkUI ? "hover:bg-black/10" : "hover:bg-white/10";
+  const iconVisible = darkUI
+    ? "text-black/80 group-hover:text-black"
+    : "text-white/80 group-hover:text-white";
+  const iconHidden = darkUI ? "text-black/40" : "text-white/40";
+  const labelVisible = darkUI ? "text-black" : "text-white";
+  const labelHidden = darkUI ? "text-black/40" : "text-white/40";
+  const eyeColor = darkUI ? "text-black/80" : "text-white/80";
 
   return (
     <div
-      className="fixed top-4 left-4 z-10 w-[220px] rounded-2xl border border-white/20 bg-white/20 text-white shadow-lg backdrop-blur-xl"
+      className={`fixed top-4 left-4 z-10 w-[220px] rounded-2xl border shadow-lg backdrop-blur-xl ${panelClasses}`}
       style={{ fontFamily: "'Departure Mono', ui-monospace, monospace" }}
     >
       <div className="flex items-center justify-between px-4 py-3">
-        <span className="text-[13px] font-medium tracking-[0.18em] text-white/80">
+        <span
+          className={`text-[13px] font-medium tracking-[0.18em] ${headerLabel}`}
+        >
           LAYERS
         </span>
         <button
           type="button"
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={() => {
+            play("click");
+            setCollapsed((c) => !c);
+          }}
           aria-label={collapsed ? "Expand panel" : "Collapse panel"}
           aria-expanded={!collapsed}
-          className="grid h-6 w-6 place-items-center rounded text-white/80 hover:text-white"
+          className={`grid h-6 w-6 place-items-center rounded ${toggleBtn}`}
         >
           <HideToggleIcon />
         </button>
@@ -290,7 +315,7 @@ export function LayersPanel({ visibility, onToggle }: Props) {
         aria-hidden={collapsed}
       >
         <div className="overflow-hidden">
-          <div className="h-px bg-white/15" />
+          <div className={`h-px ${divider}`} />
           <ul className="flex flex-col p-2">
         {LAYERS.map(({ key, label, Icon }) => {
           const visible = visibility[key];
@@ -298,31 +323,32 @@ export function LayersPanel({ visibility, onToggle }: Props) {
             <li key={key} className="group">
               <button
                 type="button"
-                onClick={() => onToggle(key)}
+                onClick={() => {
+                  play("click");
+                  onToggle(key);
+                }}
                 aria-label={`${visible ? "Hide" : "Show"} ${label}`}
                 aria-pressed={visible}
-                className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 transition-colors hover:bg-white/10"
+                className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 transition-colors ${rowHover}`}
               >
                 <span className="flex items-center gap-3">
                   <span
                     className={`grid h-5 w-5 place-items-center transition-colors ${
-                      visible
-                        ? "text-white/80 group-hover:text-white"
-                        : "text-white/40"
+                      visible ? iconVisible : iconHidden
                     }`}
                   >
                     <Icon />
                   </span>
                   <span
                     className={`text-[14px] tracking-tight ${
-                      visible ? "text-white" : "text-white/40"
+                      visible ? labelVisible : labelHidden
                     }`}
                   >
                     {label}
                   </span>
                 </span>
                 <span
-                  className={`grid h-5 w-5 place-items-center text-white/80 transition-opacity ${
+                  className={`grid h-5 w-5 place-items-center transition-opacity ${eyeColor} ${
                     visible
                       ? "opacity-0 group-hover:opacity-100"
                       : "opacity-100"
