@@ -5,7 +5,6 @@ import {
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
-  type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 import type { DitherControls } from "./DitherCanvas";
@@ -92,6 +91,9 @@ export const BACKGROUNDS: Background[] = [
 ];
 
 const STROKE = "currentColor";
+
+const SECTION_LABEL =
+  "text-[11px] font-medium tracking-[0.18em] text-white/80";
 
 const MATRIX_OPTIONS = [
   { value: 0, label: "Bayer 2×2" },
@@ -238,6 +240,166 @@ function Slider({
   );
 }
 
+type KnobProps = {
+  label: string;
+  labelClassName?: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (v: number) => void;
+};
+
+const KNOB_DISK = 88;
+const KNOB_NUM_R = KNOB_DISK / 2 + 22;
+const KNOB_DOT_R = (KNOB_DISK / 2) * 0.65;
+const KNOB_CONTAINER = KNOB_NUM_R * 2 + 24;
+
+function Knob({
+  label,
+  labelClassName,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+}: KnobProps) {
+  const knobRef = useRef<HTMLDivElement>(null);
+  const valueRef = useRef(value);
+  const wheelAccumRef = useRef(0);
+
+  useEffect(() => {
+    valueRef.current = value;
+  });
+
+  const valueFromPointer = (clientX: number, clientY: number): number | null => {
+    const el = knobRef.current;
+    if (!el) return null;
+    const rect = el.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = clientX - cx;
+    const dy = clientY - cy;
+    if (dx * dx + dy * dy < 25) return null; // ignore near-center clicks
+    let a = (Math.atan2(dx, -dy) * 180) / Math.PI;
+    if (a > 135) a = 135;
+    else if (a < -135) a = -135;
+    const t = (a + 135) / 270;
+    const raw = min + t * (max - min);
+    return clamp(Math.round(raw / step) * step, min, max);
+  };
+
+  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const next = valueFromPointer(e.clientX, e.clientY);
+    if (next != null && next !== value) onChange(next);
+  };
+
+  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.buttons === 0) return;
+    const next = valueFromPointer(e.clientX, e.clientY);
+    if (next != null && next !== valueRef.current) onChange(next);
+  };
+
+  // Native wheel listener so preventDefault actually stops the page from
+  // scrolling while the cursor is over the knob.
+  useEffect(() => {
+    const el = knobRef.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => {
+      e.preventDefault();
+      const dy = -e.deltaY;
+      const dx = e.deltaX;
+      const composite = Math.abs(dy) >= Math.abs(dx) ? dy : dx;
+      wheelAccumRef.current += composite;
+      const THRESHOLD = 30;
+      if (Math.abs(wheelAccumRef.current) < THRESHOLD) return;
+      const sign = Math.sign(wheelAccumRef.current);
+      wheelAccumRef.current = 0;
+      const next = clamp(valueRef.current + sign * step, min, max);
+      if (next !== valueRef.current) onChange(next);
+    };
+    el.addEventListener("wheel", handler, { passive: false });
+    return () => el.removeEventListener("wheel", handler);
+  }, [min, max, step, onChange]);
+
+  const valueToAngle = (v: number) =>
+    -135 + ((v - min) / (max - min)) * 270;
+
+  const numbers: number[] = [];
+  for (let v = min; v <= max + 1e-6; v += step) numbers.push(Math.round(v));
+
+  const currentAngle = valueToAngle(value);
+  const currentRad = (currentAngle * Math.PI) / 180;
+  const dotX = Math.sin(currentRad) * KNOB_DOT_R;
+  const dotY = -Math.cos(currentRad) * KNOB_DOT_R;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between text-[12px]">
+        <span className={labelClassName ?? "text-white/70"}>{label}</span>
+        <span className="tabular-nums text-white/80">{Math.round(value)}</span>
+      </div>
+      <div
+        className="relative mx-auto"
+        style={{ width: KNOB_CONTAINER, height: KNOB_CONTAINER }}
+      >
+        {numbers.map((v) => {
+          const a = valueToAngle(v);
+          const rad = (a * Math.PI) / 180;
+          const x = Math.sin(rad) * KNOB_NUM_R;
+          const y = -Math.cos(rad) * KNOB_NUM_R;
+          const active = v === Math.round(value);
+          return (
+            <span
+              key={v}
+              className={`pointer-events-none absolute text-[10px] tabular-nums ${
+                active ? "text-white" : "text-white/55"
+              }`}
+              style={{
+                left: "50%",
+                top: "50%",
+                transform: `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${a}deg)`,
+              }}
+            >
+              {v}
+            </span>
+          );
+        })}
+        <div
+          ref={knobRef}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          className="absolute left-1/2 top-1/2 cursor-pointer touch-none select-none"
+          style={{
+            width: KNOB_DISK,
+            height: KNOB_DISK,
+            borderRadius: "50%",
+            transform: "translate(-50%, -50%)",
+            background:
+              "linear-gradient(#DFDFE1, #DFDFE1) padding-box, linear-gradient(to bottom, #FFFFFF, #A7A7A7) border-box",
+            border: "2px solid transparent",
+            boxShadow: "0 1px 2px 0 rgba(0,0,0,0.18)",
+          }}
+        >
+          <div
+            className="pointer-events-none absolute"
+            style={{
+              left: "50%",
+              top: "50%",
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              backgroundColor: "#FF5A1F",
+              transform: `translate(${dotX}px, ${dotY}px) translate(-50%, -50%)`,
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type SelectOption<T extends number | string> = { value: T; label: string };
 
 type SelectProps<T extends number | string> = {
@@ -310,7 +472,7 @@ function SelectField<T extends number | string>({
               left: pos.left,
               width: pos.width,
               zIndex: 50,
-              fontFamily: "'Geist Mono', ui-monospace, monospace",
+              fontFamily: "'Departure Mono', ui-monospace, monospace",
             }}
           >
             {options.map((o) => (
@@ -337,16 +499,18 @@ function SelectField<T extends number | string>({
 
 function ColorField({
   label,
+  labelClassName,
   value,
   onChange,
 }: {
   label: string;
+  labelClassName?: string;
   value: string;
   onChange: (v: string) => void;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 text-[12px]">
-      <span className="text-white/70">{label}</span>
+      <span className={labelClassName ?? "text-white/70"}>{label}</span>
       <label className="flex cursor-pointer items-center gap-2">
         <input
           type="color"
@@ -360,23 +524,6 @@ function ColorField({
         />
         <span className="tabular-nums text-white/80 uppercase">{value}</span>
       </label>
-    </div>
-  );
-}
-
-function Group({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <div>
-      <div className="px-3 py-2 text-[11px] font-medium tracking-[0.18em] text-white/80">
-        {label.toUpperCase()}
-      </div>
-      <div className="flex flex-col gap-3.5 px-3 pb-3">{children}</div>
     </div>
   );
 }
@@ -399,7 +546,7 @@ export function PropertiesPanel({
   return (
     <div
       className="fixed top-4 right-4 z-10 w-[280px] rounded-2xl border border-white/20 bg-white/20 text-white shadow-lg backdrop-blur-xl"
-      style={{ fontFamily: "'Geist Mono', ui-monospace, monospace" }}
+      style={{ fontFamily: "'Departure Mono', ui-monospace, monospace" }}
     >
       <div className="flex items-center justify-between px-4 py-3">
         <span className="text-[13px] font-medium tracking-[0.18em] text-white/80">
@@ -426,7 +573,7 @@ export function PropertiesPanel({
         <div className="overflow-hidden">
           <div className="h-px bg-white/15" />
           <div className="max-h-[80vh] overflow-y-auto">
-            <Group label="Background">
+            <div className="px-3 py-3">
               <div className="grid grid-cols-5 gap-2 px-1 py-1">
                 {BACKGROUNDS.map((bg, i) => {
                   const selected = i === backgroundIndex;
@@ -447,11 +594,9 @@ export function PropertiesPanel({
                   );
                 })}
               </div>
-            </Group>
+            </div>
             <div className="flex items-center justify-between gap-3 px-3 py-3">
-              <span className="text-[11px] font-medium tracking-[0.18em] text-white/80">
-                SHAPE
-              </span>
+              <span className={SECTION_LABEL}>SHAPE</span>
               <div className="w-[140px]">
                 <SelectField
                   value={shapeIndex}
@@ -463,7 +608,7 @@ export function PropertiesPanel({
             <div className="px-3 py-3">
               <Slider
                 label="NOISE"
-                labelClassName="text-[11px] font-medium tracking-[0.18em] text-white/80"
+                labelClassName={SECTION_LABEL}
                 value={controls.noiseAmount}
                 min={0}
                 max={1}
@@ -471,23 +616,29 @@ export function PropertiesPanel({
                 onChange={num("noiseAmount")}
               />
             </div>
-            <Group label="Halftone">
-              <Slider
-                label="pixel size"
+            <div className="flex flex-col gap-3.5 px-3 py-3">
+              <Knob
+                label="PIXEL SIZE"
+                labelClassName={SECTION_LABEL}
                 value={controls.pixelSize}
                 min={1}
                 max={12}
                 step={1}
                 onChange={num("pixelSize")}
               />
-              <SelectField
-                label="matrix"
-                value={controls.matrix}
-                options={MATRIX_OPTIONS}
-                onChange={(v) => onChange("matrix", v)}
-              />
+              <div className="flex items-center justify-between gap-3">
+                <span className={SECTION_LABEL}>MATRIX</span>
+                <div className="w-[140px]">
+                  <SelectField
+                    value={controls.matrix}
+                    options={MATRIX_OPTIONS}
+                    onChange={(v) => onChange("matrix", v)}
+                  />
+                </div>
+              </div>
               <Slider
-                label="sparsity"
+                label="SPARSITY"
+                labelClassName={SECTION_LABEL}
                 value={controls.sparsity}
                 min={0}
                 max={1}
@@ -495,21 +646,23 @@ export function PropertiesPanel({
                 onChange={num("sparsity")}
               />
               <Slider
-                label="dot jitter"
+                label="DOT JITTER"
+                labelClassName={SECTION_LABEL}
                 value={controls.dotJitter}
                 min={0}
                 max={1}
                 step={0.01}
                 onChange={num("dotJitter")}
               />
-            </Group>
-            <Group label="Render">
+            </div>
+            <div className="px-3 py-3">
               <ColorField
-                label="color"
+                label="COLOR"
+                labelClassName={SECTION_LABEL}
                 value={controls.color}
                 onChange={(v) => onChange("color", v)}
               />
-            </Group>
+            </div>
           </div>
         </div>
       </div>

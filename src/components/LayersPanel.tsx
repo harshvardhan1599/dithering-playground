@@ -267,7 +267,7 @@ export function LayersPanel({ visibility, onToggle }: Props) {
   return (
     <div
       className="fixed top-4 left-4 z-10 w-[220px] rounded-2xl border border-white/20 bg-white/20 text-white shadow-lg backdrop-blur-xl"
-      style={{ fontFamily: "'Geist Mono', ui-monospace, monospace" }}
+      style={{ fontFamily: "'Departure Mono', ui-monospace, monospace" }}
     >
       <div className="flex items-center justify-between px-4 py-3">
         <span className="text-[13px] font-medium tracking-[0.18em] text-white/80">
