@@ -208,7 +208,7 @@ function Slider({
 }: SliderProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const decimals = useMemo(() => decimalsFor(step), [step]);
-  const { play } = useSounds();
+  const { scrubSlider } = useSounds();
 
   const setFromClientX = (clientX: number) => {
     const el = trackRef.current;
@@ -219,7 +219,7 @@ function Slider({
     const snapped = Math.round(raw / step) * step;
     const next = clamp(snapped, min, max);
     if (next !== value) {
-      play("tick");
+      scrubSlider((next - min) / (max - min));
       onChange(next);
     }
   };
