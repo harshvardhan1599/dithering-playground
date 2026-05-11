@@ -22,11 +22,12 @@ function pickContrastColor(
   anchor: "top" | "bottom",
 ): string {
   const stops = pageGradient.match(/#[0-9A-Fa-f]{6}/g) ?? [];
-  if (stops.length === 0) return "#ffffff";
-  const anchorColor =
-    anchor === "top" ? stops[0] : stops[stops.length - 1];
+  const [firstStop] = stops;
+  if (firstStop === undefined) return "#ffffff";
+  const lastStop = stops[stops.length - 1] ?? firstStop;
+  const anchorColor = anchor === "top" ? firstStop : lastStop;
   const anchorLum = hexLum(anchorColor);
-  let best = stops[0];
+  let best = firstStop;
   let bestDist = Math.abs(hexLum(best) - anchorLum);
   for (const c of stops) {
     const d = Math.abs(hexLum(c) - anchorLum);
